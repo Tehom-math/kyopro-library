@@ -1,0 +1,34 @@
+template<class S,S (*op)(S,S)>
+struct SparseTable{
+  int n;
+  vector<int> lg;
+  vector<vector<S>> st;
+
+  SparseTable(const vector<S> &v){
+    build(v);
+  }
+
+  void build(const vector<S> &v){
+    n=(int)v.size();
+    lg.resize(n+1);
+    lg[1]=0;
+    for(int i=2;i<=n;i++){
+      lg[i]=lg[i/2]+1;
+    }
+    
+    int K=lg[n]+1;
+    st.assign(K,vector<S>(n));
+    st[0]=v;
+
+    for(int k=1;k<K;k++){
+      for(int i=0;i+(1<<k)<=n;i++){
+        st[k][i]=op(st[k-1][i],st[k-1][i+(1<<(k-1))]);
+      }
+    }
+  }
+
+  S prod(int l,int r){
+    int k=lg[r-l];
+    return op(st[k][l],st[k][r-(1<<k)]);
+  }
+};

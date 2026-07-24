@@ -1,0 +1,23 @@
+using mint=modint998244353;
+vector<vector<mint>> f(vector<vector<mint>> a,vector<vector<mint>> b){
+  int m=a.size();
+  vector res(m,vector<mint>(m));
+  rep(i,0,m)rep(j,0,m){
+    // ここは問題によって変更
+    rep(l,0,m) res[i][j]+=a[i][l]*b[l][j];
+  }
+  return res;
+}
+
+vector<vector<mint>> g(vector<vector<mint>> a,ll m){
+  int si=a.size();
+  vector res(si,vector<mint>(si,0));
+  // ここは問題によって変更
+  rep(i,0,si) res[i][i]=1;
+  while(m>0){
+    if(m&1) res=f(res,a);
+    a=f(a,a);
+    m>>=1;
+  }
+  return res;
+}

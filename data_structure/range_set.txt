@@ -1,0 +1,20 @@
+struct range_set{
+  int range_size;
+  set<pair<int,int>> st;
+
+  range_set() : range_size(0){}
+
+  // 半開区間として扱う
+  void insert(int l,int r){
+    auto it=st.lower_bound({l,-1});
+    if(it != st.begin() && prev(it)->second>=l) it--;
+    while(it != st.end() && it->first<=r){
+      range_size-=it->second-it->first;
+      l=min(l,it->first);
+      r=max(r,it->second);
+      st.erase(it++);
+    }
+    st.insert({l,r});
+    range_size+=r-l;
+  }
+};

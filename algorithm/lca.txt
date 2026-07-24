@@ -1,0 +1,96 @@
+template<class S,S (*op)(S,S)>
+struct SparseTable{
+  int n;
+  vector<int> lg;
+  vector<vector<S>> st;
+
+  SparseTable() {}
+
+  SparseTable(const vector<S> &v){
+    build(v);
+  }
+
+  void build(const vector<S> &v){
+    n=(int)v.size();
+    lg.resize(n+1);
+    lg[1]=0;
+    for(int i=2;i<=n;i++){
+      lg[i]=lg[i/2]+1;
+    }
+    
+    int K=lg[n]+1;
+    st.assign(K,vector<S>(n));
+    st[0]=v;
+
+    for(int k=1;k<K;k++){
+      for(int i=0;i+(1<<k)<=n;i++){
+        st[k][i]=op(st[k-1][i],st[k-1][i+(1<<(k-1))]);
+      }
+    }
+  }
+
+  S prod (int l,int r) const{
+    assert(0<=l && l<r && r<=n);
+    int k=lg[r-l];
+    return op(st[k][l],st[k][r-(1<<k)]);
+  }
+};
+
+pair<int,int> lca_op(pair<int,int> a,pair<int,int> b){return min(a,b);}
+struct LCA{
+  int n;
+  vector<vector<int>> to;
+  vector<pair<int,int>> et;
+  vector<int> dep;
+  vector<int> in;
+
+  SparseTable<pair<int,int>,lca_op> st;
+
+  LCA() : n(0) {}
+
+  LCA(int _n) : n(_n), to(_n), dep(_n), in(_n){}
+
+  void add_edge(int u,int v){
+    to[u].push_back(v);
+    to[v].push_back(u);
+  }
+
+  void dfs(int v,int pr,int d){
+    dep[v]=d;
+
+    in[v]=(int)et.size();
+    et.push_back({d,v});
+
+    for(auto nv:to[v]){
+      if(nv == pr) continue;
+
+      dfs(nv,v,d+1);
+
+      et.push_back({d,v});
+    }
+  }
+
+  void build(int root=0){
+    assert(0<=root && root<n);
+
+    et.clear();
+
+    dfs(root,-1,0);
+
+    st.build(et);
+  }
+
+  int lca(int u,int v) const{
+    int l=in[u];
+    int r=in[v];
+    
+    if(l>r) swap(l,r);
+
+    return st.prod(l,r+1).second;
+  }
+
+  int dist(int u,int v) const{
+    int w=lca(u,v);
+    return dep[u]+dep[v]-2*dep[w];
+  }
+};

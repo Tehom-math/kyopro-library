@@ -1,0 +1,13 @@
+vector<int> make_prime(int N){
+  vector<bool> isprime(N+1,true);
+  vector<int> res; 
+  rep(p,2,N+1){
+    if(!isprime[p]) continue;
+    res.push_back(p);
+    for(int q=2*p;q<=N;q+=p){
+      isprime[q]=false;
+    }
+  }
+
+  return res;
+}

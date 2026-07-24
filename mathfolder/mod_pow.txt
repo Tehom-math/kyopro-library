@@ -1,0 +1,13 @@
+ll mod_pow(ll a,ll n,ll mod){
+  ll res=1;
+  while(n>0){
+    if(n&1 == 1){
+      res*=a;
+      res%=mod;
+    }
+    a*=a;
+    a%=mod;
+    n>>=1;
+  }
+  return res;
+}

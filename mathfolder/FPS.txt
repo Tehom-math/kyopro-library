@@ -1,0 +1,622 @@
+// FPS library
+
+template <class Mint>
+struct FormalPowerSeries : std::vector<Mint> {
+    using Base = std::vector<Mint>;
+    using Base::Base;
+    using Base::operator=;
+
+    FormalPowerSeries() = default;
+    FormalPowerSeries(const Base& v) : Base(v) {}
+    FormalPowerSeries(Base&& v) : Base(std::move(v)) {}
+
+    FormalPowerSeries& shrink() {
+        while (!this->empty() && this->back() == Mint(0)) this->pop_back();
+        return *this;
+    }
+
+    FormalPowerSeries pre(int n) const {
+        n = std::max(n, 0);
+        return FormalPowerSeries(this->begin(), this->begin() + std::min<int>(n, this->size()));
+    }
+
+    FormalPowerSeries rev(int n = -1) const {
+        FormalPowerSeries r = *this;
+        if (n != -1) r.resize(n);
+        std::reverse(r.begin(), r.end());
+        return r;
+    }
+
+    Mint coeff(int i) const { return 0 <= i && i < (int)this->size() ? (*this)[i] : Mint(0); }
+
+    FormalPowerSeries& operator+=(const FormalPowerSeries& rhs) {
+        if (this->size() < rhs.size()) this->resize(rhs.size());
+        for (int i = 0; i < (int)rhs.size(); ++i) (*this)[i] += rhs[i];
+        return *this;
+    }
+    FormalPowerSeries& operator-=(const FormalPowerSeries& rhs) {
+        if (this->size() < rhs.size()) this->resize(rhs.size());
+        for (int i = 0; i < (int)rhs.size(); ++i) (*this)[i] -= rhs[i];
+        return *this;
+    }
+    FormalPowerSeries& operator*=(Mint c) {
+        for (Mint& x : *this) x *= c;
+        return *this;
+    }
+    FormalPowerSeries& operator/=(Mint c) { return *this *= c.inv(); }
+
+    FormalPowerSeries& operator*=(const FormalPowerSeries& rhs) {
+        if (this->empty() || rhs.empty()) {
+            this->clear();
+            return *this;
+        }
+        *this = convolution(*this, rhs);
+        return *this;
+    }
+
+    FormalPowerSeries operator-() const {
+        FormalPowerSeries r = *this;
+        for (Mint& x : r) x = -x;
+        return r;
+    }
+
+    FormalPowerSeries& operator<<=(int n) {
+        if (n == 0) return *this;
+        if (n < 0) return *this >>= -n;
+        this->insert(this->begin(), n, Mint(0));
+        return *this;
+    }
+    FormalPowerSeries& operator>>=(int n) {
+        if (n == 0) return *this;
+        if (n < 0) return *this <<= -n;
+        if (n >= (int)this->size()) this->clear();
+        else this->erase(this->begin(), this->begin() + n);
+        return *this;
+    }
+
+    FormalPowerSeries diff() const {
+        if (this->empty()) return {};
+        FormalPowerSeries r(std::max(0, (int)this->size() - 1));
+        for (int i = 1; i < (int)this->size(); ++i) r[i - 1] = (*this)[i] * i;
+        return r;
+    }
+
+    FormalPowerSeries integral() const {
+        FormalPowerSeries r(this->size() + 1);
+        if (this->empty()) return r;
+        std::vector<Mint> inv(this->size() + 1);
+        inv[1] = 1;
+        for (int i = 2; i <= (int)this->size(); ++i)
+            inv[i] = -inv[Mint::mod() % i] * (Mint::mod() / i);
+        for (int i = 0; i < (int)this->size(); ++i) r[i + 1] = (*this)[i] * inv[i + 1];
+        return r;
+    }
+
+    // Returns f^{-1} modulo x^n. Requires f[0] != 0.
+    FormalPowerSeries inv(int n) const {
+        assert(n >= 0);
+        if (n == 0) return {};
+        assert(!this->empty() && (*this)[0] != Mint(0));
+        FormalPowerSeries r{(*this)[0].inv()};
+        for (int m = 1; m < n; m <<= 1) {
+            int k = std::min(2 * m, n);
+            FormalPowerSeries f = this->pre(k);
+            r = (r * (FormalPowerSeries{Mint(2)} - f * r)).pre(k);
+        }
+        return r.pre(n);
+    }
+
+    // Requires f[0] == 1.
+    FormalPowerSeries log(int n) const {
+        assert(n >= 0 && !this->empty() && (*this)[0] == Mint(1));
+        return (diff() * inv(n)).pre(std::max(0, n - 1)).integral().pre(n);
+    }
+
+    // Requires f[0] == 0.
+    FormalPowerSeries exp(int n) const {
+        assert(n >= 0 && (this->empty() || (*this)[0] == Mint(0)));
+        FormalPowerSeries r{Mint(1)};
+        for (int m = 1; m < n; m <<= 1) {
+            int k = std::min(2 * m, n);
+            FormalPowerSeries q = this->pre(k) - r.log(k);
+            q[0] += 1;
+            r = (r * q).pre(k);
+        }
+        return r.pre(n);
+    }
+
+    FormalPowerSeries pow(long long k, int n) const {
+        assert(k >= 0 && n >= 0);
+        if (n == 0) return {};
+        if (k == 0) {
+            FormalPowerSeries r(n);
+            r[0] = 1;
+            return r;
+        }
+        int z = 0;
+        while (z < (int)this->size() && (*this)[z] == Mint(0)) ++z;
+        if (z == (int)this->size() || z >= (n + k - 1) / k) return FormalPowerSeries(n);
+        long long shift = 1LL * z * k;
+        if (shift >= n) return FormalPowerSeries(n);
+        Mint c = (*this)[z];
+        FormalPowerSeries g = (*this >> z) / c;
+        g = (g.log(n - shift) * Mint(k)).exp(n - shift) * c.pow(k);
+        g <<= (int)shift;
+        return g.pre(n);
+    }
+
+    // Square root in F_p[[x]], if one exists. Returns nullopt otherwise.
+    std::optional<FormalPowerSeries> sqrt(int n) const {
+        assert(n >= 0);
+        if (n == 0) return FormalPowerSeries{};
+        int z = 0;
+        while (z < (int)this->size() && (*this)[z] == Mint(0)) ++z;
+        if (z == (int)this->size()) return FormalPowerSeries(n);
+        if (z & 1) return std::nullopt;
+        auto root = mod_sqrt((*this)[z]);
+        if (!root) return std::nullopt;
+        FormalPowerSeries f = *this >> z;
+        int need = n - z / 2;
+        FormalPowerSeries r{*root};
+        const Mint inv2 = Mint(2).inv();
+        for (int m = 1; m < need; m <<= 1) {
+            int k = std::min(2 * m, need);
+            r = ((r + f.pre(k) * r.inv(k)) * inv2).pre(k);
+        }
+        r <<= z / 2;
+        return r.pre(n);
+    }
+
+    // O(n log^2 n)  Usually use only when g[0] == 0.
+    FormalPowerSeries compose(const FormalPowerSeries& g, int n_out) const {
+        assert(n_out >= 0);
+        if (n_out == 0) return FormalPowerSeries();
+
+        using T = Mint;
+
+        // 1. 出力項数 n_out 以上になる最小の2のべき乗 n を求める
+        int n = 1;
+        while (n < n_out) n *= 2;
+
+        // 2. 元の f (this) をサイズ n に拡張したベクトルを用意する
+        std::vector<T> f_vec(n, T(0));
+        for (int i = 0; i < (int)this->size() && i < n; ++i) {
+            f_vec[i] = (*this)[i];
+        }
+
+        // 内部再帰ラムダ関数 (f_vec を参照キャプチャ)
+        auto rec = [&](auto rec, int n_cur, int k, std::vector<T> Q) -> std::vector<T> {
+            if (n_cur == 1) {
+                std::vector<T> p(2 * k);
+                // 元のコード通り、サイズ n に拡張された f_vec を反転する
+                std::reverse(f_vec.begin(), f_vec.end());
+                for (int i = 0; i < k; i++) {
+                    if (i < (int)f_vec.size()) p[2 * i] = f_vec[i];
+                }
+                return p;
+            }
+
+            std::vector<T> nxt_Q(2 * n_cur * k);
+            for (int i = 0; i < n_cur * k; i++) nxt_Q[n_cur * k + i] += Q[i * 2] * 2;
+            Q.resize(4 * n_cur * k);
+            atcoder::internal::butterfly(Q);
+
+            // Q(-x) の計算
+            std::vector<T> R(4 * n_cur * k);
+            for (int i = 0; i < 2 * n_cur * k; i++) {
+                R[i * 2] = Q[i * 2 + 1];
+                R[i * 2 + 1] = Q[i * 2];
+            }
+
+            T iz = T(1) / T(4 * n_cur * k);
+            for (int i = 0; i < 4 * n_cur * k; i++) Q[i] *= R[i];
+            for (int i = 0; i < 2 * n_cur * k; i++) Q[i] = Q[i * 2];
+            Q.resize(2 * n_cur * k);
+            atcoder::internal::butterfly_inv(Q);
+
+            for (int i = 0; i < 2 * n_cur * k; i++) nxt_Q[i] += Q[i] * iz * 2;
+            for (int j = 0; j < 2 * k; j++) {
+                for (int i = n_cur / 2; i < n_cur; i++) {
+                    nxt_Q[n_cur * j + i] = 0;
+                }
+            }
+
+            std::vector<T> pq = rec(rec, n_cur / 2, k * 2, nxt_Q);
+            std::vector<T> p(2 * n_cur * k);
+            for (int j = 0; j < 2 * k; j++) {
+                for (int i = n_cur / 2; i < n_cur; i++) {
+                    pq[n_cur * j + i] = 0;
+                }
+            }
+
+            for (int i = 0; i < n_cur * k; i++) p[i * 2 + 1] += pq[n_cur * k + i];
+            std::reverse(pq.begin(), pq.end());
+            atcoder::internal::butterfly(pq);
+            pq.resize(4 * n_cur * k);
+            for (int i = 2 * n_cur * k - 1; i >= 0; i--) {
+                pq[i * 2 + 1] = pq[i];
+                pq[i * 2] = pq[i];
+            }
+
+            for (int i = 0; i < 4 * n_cur * k; i++) pq[i] *= R[i];
+            atcoder::internal::butterfly_inv(pq);
+            for (int i = 0; i < 2 * n_cur * k; i++) p[i] += pq[4 * n_cur * k - 1 - i] * iz;
+            return p;
+        };
+
+        // 3. g をサイズ n に拡張したベクトルを用意する
+        std::vector<T> g_vec(n, T(0));
+        for (int i = 0; i < (int)g.size() && i < n; ++i) {
+            g_vec[i] = g[i];
+        }
+
+        std::vector<T> Q(2 * n);
+        for (int i = 0; i < n; i++) Q[i] = -g_vec[i];
+
+        // 変数名の衝突を防ぐため、再帰関数の第2引数には初期の n を渡します
+        auto p = rec(rec, n, 1, Q);
+
+        std::vector<T> res_vec(n);
+        for (int i = 0; i < n; i++) res_vec[i] = p[i];
+        std::reverse(res_vec.begin(), res_vec.end());
+        res_vec.resize(n_out);
+
+        // FormalPowerSeries 型に変換して返す
+        FormalPowerSeries res(n_out);
+        for (int i = 0; i < n_out; i++) res[i] = res_vec[i];
+        return res;
+    }
+
+    // 合成逆関数 g(f(x)) = x mod x^len を満たす g を返す。
+    // 条件: (*this)[0] == 0, (*this)[1] != 0
+    FormalPowerSeries compositional_inverse(int len = -1) const {
+        if (len == -1) len = (int)this->size();
+        if (len == 0) return {};
+        if (len == 1) return FormalPowerSeries{Mint(0)};
+        assert((int)this->size() >= 2);
+        assert((*this)[0] == Mint(0));
+        assert((*this)[1] != Mint(0));
+
+        FormalPowerSeries f = this->pre(len);
+        f.resize(len);
+        Mint c = f[1].inv();
+        for (Mint& x : f) x *= c;
+
+        std::vector<Mint> inv_num(len + 1, Mint(1));
+        for (int i = 2; i <= len; ++i)
+            inv_num[i] = -inv_num[Mint::mod() % i] * (Mint::mod() / i);
+
+        std::vector<Mint> p = power_projection(std::vector<Mint>(f.begin(), f.end()), len, len);
+
+        FormalPowerSeries g(len - 1);
+        for (int i = 1; i < len; ++i)
+            g[len - 1 - i] = p[i] * Mint(len - 1) * inv_num[i];
+
+        FormalPowerSeries L = (g.diff() * g.inv(len - 1))
+                                   .pre(std::max(0, len - 2))
+                                   .integral()
+                                   .pre(len - 1);
+        for (int i = 0; i < len - 1; ++i) L[i] *= Mint(-1) * inv_num[len - 1];
+
+        g = L.exp(len - 1);
+
+        g.insert(g.begin(), Mint(0));
+        Mint v = Mint(1);
+        for (Mint& x : g) { x *= v; v *= c; }
+        return g;
+    }
+
+
+    // f(x + c), valid while degree < mod.
+    FormalPowerSeries taylor_shift(Mint c) const {
+        int n = this->size();
+        std::vector<Mint> fact(n), ifact(n);
+        if (n == 0) return {};
+        fact[0] = 1;
+        for (int i = 1; i < n; ++i) fact[i] = fact[i - 1] * i;
+        ifact[n - 1] = fact[n - 1].inv();
+        for (int i = n - 1; i; --i) ifact[i - 1] = ifact[i] * i;
+        FormalPowerSeries a(n), b(n);
+        Mint pw = 1;
+        for (int i = 0; i < n; ++i) {
+            a[n - 1 - i] = (*this)[i] * fact[i];
+            b[i] = pw * ifact[i];
+            pw *= c;
+        }
+        FormalPowerSeries d = a * b;
+        FormalPowerSeries r(n);
+        for (int i = 0; i < n; ++i) r[i] = d[n - 1 - i] * ifact[i];
+        return r;
+    }
+
+    Mint eval(Mint x) const {
+        Mint r = 0;
+        for (int i = (int)this->size() - 1; i >= 0; --i) r = r * x + (*this)[i];
+        return r;
+    }
+
+    // f mod g (g はモニック, deg g = m を想定)
+    FormalPowerSeries rem(const FormalPowerSeries& g) const {
+        int m = (int)g.size() - 1;
+        assert(m >= 0 && g[m] == Mint(1)); // g はモニックであること
+        if ((int)this->size() < m + 1) return *this;
+        int fn = (int)this->size();
+        int qn = fn - m; // 商の項数
+        FormalPowerSeries rf = this->rev();
+        FormalPowerSeries rg = g.rev();
+        FormalPowerSeries rq = (rf.pre(qn) * rg.inv(qn)).pre(qn);
+        FormalPowerSeries q = rq.rev(qn);
+        FormalPowerSeries r = *this - g * q;
+        return r.pre(m).shrink();
+    }
+
+private:
+    static std::optional<Mint> mod_sqrt(Mint a) {
+        if (a == Mint(0)) return Mint(0);
+        const int p = Mint::mod();
+        if (p == 2) return a;
+        if (a.pow((p - 1) / 2) != Mint(1)) return std::nullopt;
+        if (p % 4 == 3) return a.pow((p + 1) / 4);
+        // Cipolla's algorithm, valid for every odd prime modulus.
+        Mint b = 0, w;
+        do {
+            w = b * b - a;
+            b += 1;
+        } while (w.pow((p - 1) / 2) != Mint(p - 1));
+        auto mul = [w](std::pair<Mint, Mint> x, std::pair<Mint, Mint> y) {
+            return std::pair<Mint, Mint>{x.first * y.first + x.second * y.second * w,
+                                         x.first * y.second + x.second * y.first};
+        };
+        std::pair<Mint, Mint> r{Mint(1), Mint(0)}, x{b - 1, Mint(1)};
+        for (int e = (p + 1) / 2; e; e >>= 1, x = mul(x, x)) {
+            if (e & 1) r = mul(r, x);
+        }
+        return r.first;
+    }
+
+    // p[i] = [x^{len-1}] f(x)^i  (i = 0, ..., m-1) を返す。f[0] == 0 が必要。
+    static std::vector<Mint> power_projection(std::vector<Mint> f, int len, int m) {
+        int n0 = 1;
+        while (n0 < len) n0 *= 2;
+        f.resize(n0, Mint(0));
+
+        int shift = n0 - len;
+        std::vector<Mint> P(n0, Mint(0));
+        P[shift] = Mint(1);
+        int cyP = 1;
+
+        int nk = n0, cyQ = 2;
+        std::vector<Mint> Q(nk * cyQ, Mint(0));
+        Q[0] = Mint(1);                       // y^0 の係数 = 定数多項式 1
+        for (int i = 0; i < n0; ++i) Q[i + nk] = -f[i]; // y^1 の係数 = -f(x)
+
+        while (nk != 1) {
+            int nk2 = nk / 2;
+            std::vector<Mint> R(nk * cyQ);
+            for (int j = 0; j < cyQ; ++j)
+                for (int i = 0; i < nk; ++i)
+                    R[i + j * nk] = Q[i + j * nk] * ((i & 1) ? Mint(-1) : Mint(1));
+
+            int stride2 = 2 * nk;
+            auto build_padded = [&](const std::vector<Mint>& V, int cy) {
+                std::vector<Mint> out(stride2 * cy, Mint(0));
+                for (int j = 0; j < cy; ++j)
+                    for (int i = 0; i < nk; ++i)
+                        out[i + j * stride2] = V[i + j * nk];
+                return out;
+            };
+            std::vector<Mint> Pp = build_padded(P, cyP);
+            std::vector<Mint> Rp = build_padded(R, cyQ);
+            std::vector<Mint> Qp = build_padded(Q, cyQ);
+
+            std::vector<Mint> A = convolution(Pp, Rp); // P * R
+            std::vector<Mint> B = convolution(Qp, Rp); // Q * R
+
+            int cyA = cyP + cyQ - 1, cyB = cyQ + cyQ - 1;
+            A.resize((size_t)stride2 * cyA, Mint(0));
+            B.resize((size_t)stride2 * cyB, Mint(0));
+
+            std::vector<Mint> newP(nk2 * cyA, Mint(0)); // A の奇数次(x)部分
+            for (int j = 0; j < cyA; ++j)
+                for (int ip = 0; ip < nk2; ++ip)
+                    newP[ip + j * nk2] = A[(2 * ip + 1) + j * stride2];
+
+            std::vector<Mint> newQ(nk2 * cyB, Mint(0)); // B の偶数次(x)部分
+            for (int j = 0; j < cyB; ++j)
+                for (int ip = 0; ip < nk2; ++ip)
+                    newQ[ip + j * nk2] = B[(2 * ip) + j * stride2];
+
+            P = std::move(newP); cyP = cyA;
+            Q = std::move(newQ); cyQ = cyB;
+            nk = nk2;
+        }
+
+        // nk == 1: P, Q はもう x に依存しない y の多項式
+        FormalPowerSeries p(P.begin(), P.end());
+        FormalPowerSeries q(Q.begin(), Q.end());
+        // q[0] == 1 が理論的に保証される
+        FormalPowerSeries invq = q.inv(m);
+        p.resize(m, Mint(0));
+        std::vector<Mint> ans = convolution(std::vector<Mint>(p.begin(), p.end()),
+                                             std::vector<Mint>(invq.begin(), invq.end()));
+        ans.resize(m);
+        return ans;
+    }
+
+};
+
+template <class Mint> FormalPowerSeries<Mint> operator+(FormalPowerSeries<Mint> l, const FormalPowerSeries<Mint>& r) { return l += r; }
+template <class Mint> FormalPowerSeries<Mint> operator-(FormalPowerSeries<Mint> l, const FormalPowerSeries<Mint>& r) { return l -= r; }
+template <class Mint> FormalPowerSeries<Mint> operator*(FormalPowerSeries<Mint> l, const FormalPowerSeries<Mint>& r) { return l *= r; }
+template <class Mint> FormalPowerSeries<Mint> operator*(FormalPowerSeries<Mint> l, Mint r) { return l *= r; }
+template <class Mint> FormalPowerSeries<Mint> operator*(Mint l, FormalPowerSeries<Mint> r) { return r *= l; }
+template <class Mint> FormalPowerSeries<Mint> operator/(FormalPowerSeries<Mint> l, Mint r) { return l /= r; }
+template <class Mint> FormalPowerSeries<Mint> operator<<(FormalPowerSeries<Mint> f, int n) { return f <<= n; }
+template <class Mint> FormalPowerSeries<Mint> operator>>(FormalPowerSeries<Mint> f, int n) { return f >>= n; }
+
+using mint=modint998244353;
+using FPS=FormalPowerSeries<mint>;
+
+
+// prod_{i} f_{i}
+FPS FPS_Product_Sequence(vector<FPS> f){
+  if(f.size() == 0) return {1};
+  queue<FPS> que;
+  for(auto F:f) que.push(F);
+  while(que.size()>=2){
+    auto c1=que.front(); que.pop();
+    auto c2=que.front(); que.pop();
+    auto c=convolution(c1,c2);
+    que.push(c);
+  }
+  return que.front();
+}
+
+// 多点評価 (Multipoint Evaluation)
+// f(points[0]), f(points[1]), ..., f(points[n-1]) を O(n log^2 n) で計算する。
+// subproduct tree を構築し、根から葉に向かって剰余を取っていくことで
+// 各点での値 f(points[i]) = f(x) mod (x - points[i]) を求める。
+vector<mint> MultipointEvaluation(FPS f, const vector<mint>& points){
+  int n=(int)points.size();
+  if(n==0) return {};
+
+  int sz=1;
+  while(sz<n) sz<<=1;
+
+  // subtree[i]: 部分木 i が担当する区間の (x - points[j]) の総積 (モニック)
+  vector<FPS> subtree(2*sz);
+  rep(i,0,sz){
+    subtree[sz+i] = (i<n) ? FPS{-points[i], mint(1)} : FPS{mint(1)};
+  }
+  for(int i=sz-1;i>=1;i--){
+    subtree[i] = subtree[2*i] * subtree[2*i+1];
+  }
+
+  // node[i]: f を根から辿って部分木 i の積で割った余り
+  vector<FPS> node(2*sz);
+  node[1] = f.rem(subtree[1]);
+  for(int i=1;i<sz;i++){
+    node[2*i]   = node[i].rem(subtree[2*i]);
+    node[2*i+1] = node[i].rem(subtree[2*i+1]);
+  }
+
+  vector<mint> result(n);
+  rep(i,0,n){
+    result[i] = node[sz+i].empty() ? mint(0) : node[sz+i][0];
+  }
+  return result;
+}
+
+// [x^m] P[x]/Q[x]
+mint Bostan_Mori(FPS P,FPS Q,ll m){
+  while(m){
+    FPS q=Q;
+    for(int i=0;i<Q.size();i+=2) q[i]=-q[i];
+    P=convolution(P,q);
+    q=convolution(Q,q);
+    rep(i,0,Q.size()) Q[i]=q[2*i];
+    for(int i=m&1;i<P.size();i+=2) P[i/2]=P[i];
+    P.resize((P.size()+!(m&1))/2);
+    m>>=1;
+  }
+  return P[0]/Q[0];
+}
+
+void FPS_pick_even_odd(FPS &v,int odd){
+    int z = v.size() / 2;
+    mint half = (mint)(1) / (mint)(2);
+    if (odd == 0){
+        for (int i = 0; i < z; i++){
+            v[i] = (v[i * 2] + v[i * 2 + 1]) * half;
+        }
+        v.resize(z);
+    } else {
+        mint e = (mint(atcoder::internal::primitive_root_constexpr(mint::mod()))).pow(mint::mod() / (2 * z));
+        mint ie = mint(1) / e;
+        std::vector<mint> es = {half};
+        while ((int)es.size() != z){
+            std::vector<mint> n_es((int)es.size() * 2);
+            for (int i = 0; i < (int)es.size(); i++){
+                n_es[i * 2] = (es[i]);
+                n_es[i * 2 + 1] = (es[i] * ie);
+            }
+            ie *= ie;
+            std::swap(n_es, es);
+        }
+        for (int i = 0; i < z; i ++){
+            v[i] = (v[i * 2] - v[i * 2 + 1]) * es[i];
+        }
+        v.resize(z);
+    }
+}
+
+// n = |g|
+// return 
+// for i = 0, 1, ... , m - 1
+//     [x ^ {n - 1}] g(x) f(x) ^ i
+vector<mint> Power_Projection(FPS g, FPS f, int m){
+    int ind = (int)g.size() - 1;
+    int n = 1;
+    while(n < (int)g.size()) n *= 2;
+    f.reserve(4 * n);
+    g.reserve(4 * n);
+    g.resize(n, 0);
+    f.resize(n, 0);
+    std::vector<mint> hold_f(n), hold_g(n);
+    // g(x) / (y - f(x))
+    for (auto &x : f) x *= -1;
+    int nk = n;
+    mint iz = (mint)(1) / (mint)(2 * n);
+    while (nk != 1){
+        hold_g = g;
+        hold_f = f;
+        // n -> 4 * n
+        g.resize(4 * n);
+        f.resize(4 * n);
+        for (int i = n / nk - 1; i >= 0; i--){
+            for (int j = nk - 1; j >= 0; j--){
+                g[i * nk * 2 + j] = g[i * nk + j];
+                if (i) g[i * nk + j] = 0;
+                f[i * nk * 2 + j] = f[i * nk + j];
+                if (i) f[i * nk + j] = 0;
+            }
+        }
+        // tran
+        atcoder::internal::butterfly(g);
+        atcoder::internal::butterfly(f);
+        for (int i = 0; i < 2 * n; i++){
+            g[i * 2] *= f[i * 2 + 1];
+            g[i * 2 + 1] *= f[i * 2];
+            f[i * 2] *= f[i * 2 + 1];
+            f[i * 2 + 1] = f[i * 2];
+        }
+        FPS_pick_even_odd(g, (ind & 1));
+        FPS_pick_even_odd(f, 0);
+        atcoder::internal::butterfly_inv(g);
+        atcoder::internal::butterfly_inv(f);
+        for (auto &x : g) x *= iz;
+        for (auto &x : f) x *= iz;
+        // y ^ nk
+        for (int i = 0; i < n; i++){
+            if ((ind + i + 1) & 1)
+                g[n + (i / nk) * nk + (i & (nk - 1)) / 2] += hold_g[i];
+            if ((i & 1) == 0)
+                f[n + (i / nk) * nk + (i & (nk - 1)) / 2] += hold_f[i] * 2;
+        }
+        nk /= 2;
+        for (int i = 0; i < n; i++){
+            g[i] = g[(i / nk) * nk * 2 + (i & (nk - 1))];
+            f[i] = f[(i / nk) * nk * 2 + (i & (nk - 1))];
+        }
+        g.resize(n);
+        f.resize(n);
+        ind /= 2;
+    }
+    f.push_back(1);
+    std::reverse(g.begin(), g.end());
+    std::reverse(f.begin(), f.end());
+    g.resize(m);
+    std::vector<mint> ans = atcoder::convolution(g, f.inv(m));
+    ans.resize(m);
+    return ans;
+}

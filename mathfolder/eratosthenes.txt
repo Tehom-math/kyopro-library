@@ -1,0 +1,11 @@
+vector<bool> Eratsthenes(int N){
+  vector<bool> isprime(N+1,true);
+  isprime[1]=false;
+  rep(p,2,N+1){
+    if(!isprime[p]) continue;
+    for(int q=2*p;q<=N;q+=p){
+      isprime[q]=false;
+    }
+  }
+  return isprime;
+}

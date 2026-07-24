@@ -1,0 +1,15 @@
+using mint=modint998244353;
+// [x^m] P[x]/Q[x]
+mint Bostan_Mori(vector<mint> P,vector<mint> Q,ll m){
+  while(m){
+    vector<mint> q=Q;
+    for(int i=0;i<Q.size();i+=2) q[i]=-q[i];
+    P=convolution(P,q);
+    q=convolution(Q,q);
+    rep(i,0,Q.size()) Q[i]=q[2*i];
+    for(int i=m&1;i<P.size();i+=2) P[i/2]=P[i];
+    P.resize((P.size()+!(m&1))/2);
+    m>>=1;
+  }
+  return P[0]/Q[0];
+}

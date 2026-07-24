@@ -1,0 +1,84 @@
+using u64 = uint64_t;
+
+struct BitVector {
+  int n;
+  vector<u64> A;
+  vector<u64> rank64;
+  BitVector() {}
+  BitVector(int N) {
+    n = (N + 63) / 64;
+    A.resize(n + 1), rank64.resize(n + 1);
+  }
+  int popcnt(u64 x) { return __builtin_popcountll(x); }
+  void set(int i) { A[i / 64] |= 1ull << (i & 63); }
+  void build() {
+    for (int i = 0; i < n; ++i) rank64[i + 1] = rank64[i] + popcnt(A[i]);
+  }
+  int rank(int i) {
+    return rank64[i / 64] + popcnt(A[i / 64] & ((u64(1) << (i & 63)) - 1));
+  }
+};
+
+struct Wavelet_Matrix{
+  int H,N;
+  vector<BitVector> dat;
+  Wavelet_Matrix(int H,vector<int> A) : H(H),N(A.size()),dat(H){
+    for(int h=H-1;h>=0;h--){
+      BitVector bv(N);
+      vector<int> left,right;
+      for(int i=0;i<N;i++){
+        int dir=A[i]>>h&1;
+        (dir == 0 ? left : right).push_back(A[i]);
+        if(dir) bv.set(i);
+      }
+      int a=left.size(),b=right.size();
+      for(int i=0;i<a;i++) A[i]=left[i];
+      for(int i=0;i<b;i++) A[a+i]=right[i];
+
+      bv.build();
+      dat[h]=bv;
+    }
+  }
+
+  tuple<int,int,int,int> get_subtree_range(int h,int L,int R){
+    int a0=L-dat[h].rank(L), a1=dat[h].rank(L);
+    int b0=R-dat[h].rank(R), b1=dat[h].rank(R);
+    int c0=N-dat[h].rank(N);
+    return {a0,b0,c0+a1,c0+b1};
+  }
+
+  // [l,r)でk番目に小さい要素(0-index)
+  int kth_smallest(int L,int R,int k){
+    assert(0<=L && L<R && R<=N && 0<=k && k<R-L);
+    return kth_smallest_rec(H,L,R,k);
+  }
+
+  int kth_smallest_rec(int h,int l,int r,int k){
+    if(h == 0) return 0;
+    auto [l0,r0,l1,r1]=get_subtree_range(h-1,l,r);
+    int left_size=r0-l0;
+    if(k<left_size){
+      return kth_smallest_rec(h-1,l0,r0,k);
+    }
+    else{
+      return (1<<(h-1))+kth_smallest_rec(h-1,l1,r1,k-left_size);
+    }
+  }
+  
+  // [l,r)でk未満の要素数
+  int num_of_smaller_than_k(int L,int R,int k){
+    assert(0<=L && L<R && R<=N && 0<=k);
+    return num_of_smaller_than_k_rec(H,L,R,k);
+  }
+  int num_of_smaller_than_k_rec(int h,int l,int r,int k){
+    if(h == 0) return 0;
+    auto [l0,r0,l1,r1]=get_subtree_range(h-1,l,r);
+    int left_size=r0-l0;
+    if(k<(1<<(h-1))){
+      return num_of_smaller_than_k_rec(h-1,l0,r0,k);
+    }
+    else{
+      return left_size+num_of_smaller_than_k_rec(h-1,l1,r1,k-(1<<(h-1)));
+    }
+  }
+};

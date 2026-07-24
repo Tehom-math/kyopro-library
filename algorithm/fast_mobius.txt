@@ -1,0 +1,13 @@
+template<class T> void fast_mobius(vector<T> &F){
+  int N=F.size();
+        
+  // エラトステネス
+  vector<bool> isprime=Eratosthenes(N);
+    
+  for(int p=2;p<N;++p){
+    if(!isprime[p]) continue;
+    for(int k=1;k*p<N;++k){
+      F[k]-=F[k*p];
+    }
+  }
+}

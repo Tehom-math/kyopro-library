@@ -1,0 +1,135 @@
+template<int B = 30>
+struct binary_trie{
+  struct Node{
+    int cnt;
+    Node *ch[2];
+    Node() : cnt(0), ch{nullptr, nullptr} {}
+  };
+
+  Node* root;
+
+  binary_trie(){
+    root = new Node();
+  }
+
+  int size() const {
+      return root->cnt;
+  }
+
+  bool contains(int x) const {
+      Node* cur = root;
+      for (int i = B; i >= 0; i--) {
+          int b = (x >> i) & 1;
+          if (!cur->ch[b]) return false;
+          cur = cur->ch[b];
+      }
+      return cur->cnt > 0;
+  }
+
+  void insert(int x) {
+      if (contains(x)) return;
+
+      Node* cur = root;
+      cur->cnt++;
+
+      for (int i = B; i >= 0; i--) {
+          int b = (x >> i) & 1;
+
+          if (!cur->ch[b]) cur->ch[b] = new Node();
+          cur = cur->ch[b];
+          cur->cnt++;
+      }
+  }
+
+  void erase(int x) {
+      if (!contains(x)) return;
+
+      Node* cur = root;
+      cur->cnt--;
+
+      for (int i = B; i >= 0; i--) {
+          int b = (x >> i) & 1;
+          cur = cur->ch[b];
+          cur->cnt--;
+      }
+  }
+
+  // 1-indexed
+  int kth(int k) const {
+      if (k <= 0 || root->cnt < k) return -1;
+
+      Node* cur = root;
+      int res = 0;
+
+      for (int i = B; i >= 0; i--) {
+          int left = cur->ch[0] ? cur->ch[0]->cnt : 0;
+
+          if (k <= left) {
+              cur = cur->ch[0];
+          } else {
+              k -= left;
+              res |= (1 << i);
+              cur = cur->ch[1];
+          }
+      }
+
+      return res;
+  }
+
+  // <= x の個数
+  int count_leq(int x) const {
+      Node* cur = root;
+      int res = 0;
+
+      for (int i = B; i >= 0; i--) {
+          if (!cur) break;
+
+          int b = (x >> i) & 1;
+
+          if (b) {
+              if (cur->ch[0]) res += cur->ch[0]->cnt;
+              cur = cur->ch[1];
+          } else {
+              cur = cur->ch[0];
+          }
+      }
+
+      if (cur) res += cur->cnt;
+
+      return res;
+  }
+
+  // < x の個数
+  int count_less(int x) const {
+    Node* cur = root;
+    int res = 0;
+
+    for (int i = B; i >= 0; i--) {
+      if (!cur) break;
+
+      int b = (x >> i) & 1;
+
+      if (b) {
+        if (cur->ch[0]) res+=cur->ch[0]->cnt;
+        cur=cur->ch[1];
+      } 
+      else{
+        cur=cur->ch[0];
+      }
+    }
+
+    return res;
+  }
+
+  int predecessor(int x) const {
+    int k = count_leq(x);
+    if (k == 0) return -1;
+    return kth(k);
+  }
+
+  int successor(int x) const {
+    int k = count_less(x) + 1;
+    if (k > size()) return -1;
+    return kth(k);
+  }
+};

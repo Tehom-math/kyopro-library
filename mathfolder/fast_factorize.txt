@@ -1,0 +1,165 @@
+using u64 = unsigned long long;
+using u128 = __int128_t;
+
+// 高速なべき乗計算 (a^b % mod)
+u64 power(u64 a, u64 b, u64 mod) {
+    u64 res = 1;
+    a %= mod;
+    while (b > 0) {
+        if (b & 1) res = (u128)res * a % mod;
+        a = (u128)a * a % mod;
+        b >>= 1;
+    }
+    return res;
+}
+
+// ミラー・ラビン素数判定法 (64bit整数確定版)
+bool is_prime(u64 n) {
+    if (n <= 1) return false;
+    if (n == 2 || n == 3) return true;
+    if (n % 2 == 0) return false;
+
+    u64 d = n - 1;
+    int s = 0;
+    while (d % 2 == 0) {
+        d /= 2;
+        s++;
+    }
+
+    // 64bit整数以下の範囲で決定的な底のセット
+    static const u64 bases[] = {2, 325, 9375, 28178, 450775, 9780504, 1795265022};
+    for (u64 a : bases) {
+        u64 p = a % n;
+        if (p == 0) continue;
+        u64 x = power(a, d, n);
+        if (x == 1 || x == n - 1) continue;
+        bool composite = true;
+        for (int r = 1; r < s; r++) {
+            x = (u128)x * x % n;
+            if (x == n - 1) {
+                composite = false;
+                break;
+            }
+        }
+        if (composite) return false;
+    }
+    return true;
+}
+
+// ポラード・ロー法 (Brentの改良版 + GCDの遅延評価)
+u64 pollard_rho(u64 n) {
+    if (n % 2 == 0) return 2;
+    if (is_prime(n)) return n;
+
+    u64 c = 1;
+    while (true) {
+        auto f = [&](u64 x) {
+            return (u64)(((u128)x * x + c) % n);
+        };
+
+        u64 x = 2, y = 2, d = 1;
+        u64 power_of_2 = 1;
+        u64 lam = 0;
+        u64 q = 1;
+        int step = 0;
+
+        while (d == 1) {
+            if (power_of_2 == lam) {
+                x = y;
+                power_of_2 *= 2;
+                lam = 0;
+            }
+            y = f(y);
+            lam++;
+
+            // 差の積を累積させてGCDの計算回数を劇的に減らす
+            u64 diff = (x > y) ? (x - y) : (y - x);
+            q = (u128)q * diff % n;
+            step++;
+
+            if (step == 128) { // 128ステップごとにまとめてGCDを計算
+                d = std::gcd(q, n);
+                step = 0;
+            }
+        }
+
+        // まとめて計算した結果 d == n（＝ループを通り過ぎた）になった場合のケア
+        if (d == n) {
+            d = 1;
+            y = x;
+            while (d == 1) {
+                y = f(y);
+                u64 diff = (x > y) ? (x - y) : (y - x);
+                d = std::gcd(diff, n);
+            }
+        }
+
+        if (d != n) return d;
+        c++; // 因数が見つからなかった場合は定数を変更して再試行
+    }
+}
+
+// 内部用再帰関数
+void factorize_impl(u64 n, std::vector<u64>& factors) {
+    if (n <= 1) return;
+    if (is_prime(n)) {
+        factors.push_back(n);
+        return;
+    }
+    u64 d = pollard_rho(n);
+    factorize_impl(d, factors);
+    factorize_impl(n / d, factors);
+}
+
+/**
+ * @brief 素因数分解（素因数のリストを昇順で取得）
+ * @note  計算量: O(N^(1/4))
+ * @param n 分解する数 (n <= 2^64 - 1)
+ * @return std::vector<u64> 素因数のリスト (例: 12 -> {2, 2, 3})
+ */
+std::vector<u64> factorize(u64 n) {
+    std::vector<u64> factors;
+    factorize_impl(n, factors);
+    std::sort(factors.begin(), factors.end());
+    return factors;
+}
+
+/**
+ * @brief 素因数分解（(素因数, 個数) のペアを昇順で取得）
+ * @return std::vector<std::pair<u64, int>> (例: 12 -> {(2, 2), (3, 1)})
+ */
+std::vector<std::pair<u64, int>> factorize_pairs(u64 n) {
+    auto sorted_factors = factorize(n);
+    std::vector<std::pair<u64, int>> res;
+    for (u64 p : sorted_factors) {
+        if (res.empty() || res.back().first != p) {
+            res.emplace_back(p, 1);
+        } else {
+            res.back().second++;
+        }
+    }
+    return res;
+}
+
+/**
+ * @brief 約数列挙（すべての約数を昇順で取得）
+ * @return std::vector<u64> 約数のリスト (例: 12 -> {1, 2, 3, 4, 6, 12})
+ */
+std::vector<u64> divisors(u64 n) {
+    if (n == 0) return {};
+    auto pairs = factorize_pairs(n);
+    std::vector<u64> res = {1};
+    
+    for (const auto& [p, count] : pairs) {
+        int sz = res.size();
+        u64 base = 1;
+        for (int i = 0; i < count; i++) {
+            base *= p;
+            for (int j = 0; j < sz; j++) {
+                res.push_back(res[j] * base);
+            }
+        }
+    }
+    std::sort(res.begin(), res.end());
+    return res;
+}

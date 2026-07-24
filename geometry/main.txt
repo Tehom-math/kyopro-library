@@ -1,0 +1,44 @@
+using ld=long double;
+const ld eps=1e-12;
+struct V{
+  ld x,y;
+  friend istream& operator>>(istream &is,V &v){return is >> v.x >> v.y;}
+  V operator+(const V other) const{return {x+other.x, y+other.y};}
+  V operator-(const V other) const{return {x-other.x, y-other.y};}
+  ld operator*(const V other) const{return x*other.x+y*other.y;}
+  ld operator^(const V other) const{return x*other.y-y*other.x;}
+  V operator*(const ld k) const{return {x*k, y*k};}
+  friend V operator*(const ld k,const V &p){return p*k;}
+  V operator/(const ld k) const{assert(fabsl(k)>eps); return {x/k, y/k};}
+  V operator-() const{return {-x,-y};}
+  V operator+() const{return *this;}
+  V &operator+=(V other) {x+=other.x, y+=other.y; return *this;}
+  V &operator-=(V other) {x-=other.x, y-=other.y; return *this;}
+  V &operator*=(ld k) {x*=k, y*=k; return *this;}
+  V &operator/=(ld k) {assert(fabsl(k)>eps); x/=k, y/=k; return *this;}
+  bool operator==(const V &other) const{return fabsl(x-other.x)<eps && fabsl(y-other.y)<eps;}
+
+  ld norm2() const{return x*x+y*y;}
+  ld norm() const{return sqrtl(norm2());}
+  V unit() const{return *this/norm();}
+  ld arg() const{return atan2(y,x);}
+};
+int ccw(const V &a,const V &b,const V &c){
+  V ab=b-a,ac=c-a;
+  ld t=ab^ac;
+  if(t>eps) return 1;
+  if(t<-eps) return -1;
+  if(ab*ac<-eps) return 2; // c--a--b
+  if(ab.norm()<ac.norm()) return -2; // a--b--c
+  return 0; // a--c--b
+}
+struct Segment{
+  V s,g;
+  ld dist_point_segment(V p){
+    ld res=min((s-p).norm(),(g-p).norm());
+    if((g-s)*(p-s)>eps && (s-g)*(p-g)>eps){
+      chmin(res,fabsl((s-p)^(g-p))/(g-s).norm());
+    }
+    return res;
+  }
+};

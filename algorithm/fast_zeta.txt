@@ -1,0 +1,14 @@
+template<class T> void fast_zeta(vector<T> &v){
+  int N=v.size();
+  
+  // エラトステネス
+  vector<bool> isprime=Eratsthenes(N);
+
+  for(int p=2;p<N;p++){
+    if(!isprime[p]) continue;
+    for(int k=(N-1)/p;k>0;k--){
+      v[k]+=v[p*k];
+    }
+  }
+  return;
+}
