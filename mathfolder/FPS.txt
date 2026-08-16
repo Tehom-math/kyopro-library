@@ -620,3 +620,25 @@ vector<mint> Power_Projection(FPS g, FPS f, int m){
     ans.resize(m);
     return ans;
 }
+
+struct PolyMod {
+    FPS g;      // モニックな法多項式
+    int m;      // deg g
+    FPS rg_inv; // g.rev().inv(十分な次数)
+
+    PolyMod(const FPS& g_) : g(g_), m((int)g_.size() - 1) {
+        FPS rg = g.rev();
+        rg_inv = rg.inv(m + 1);
+    }
+
+    FPS rem(const FPS& f) const {
+        if ((int)f.size() < m + 1) return f;
+        int fn = (int)f.size();
+        int qn = fn - m;
+        FPS rf = f.rev();
+        FPS rq = (rf.pre(qn) * rg_inv.pre(qn)).pre(qn);
+        FPS q_ = rq.rev(qn);
+        FPS r = f - g.pre(m) * q_.pre(m);
+        return r.pre(m).shrink();
+    }
+};
