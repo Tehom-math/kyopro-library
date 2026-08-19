@@ -1,0 +1,35 @@
+using mint=modint998244353;
+struct online_convolution{
+  vector<mint> a,b,c;
+  online_convolution(){};
+
+  vector<mint> get_vec(const vector<mint> &v,int l,int r){
+    return {begin(v)+l,begin(v)+r};
+  }
+
+  void conv(int l1,int r1,int l2,int r2){
+    assert(0<=l1 && l1<a.size() && 0<r1 && r1<=a.size());
+    auto v=get_vec(a,l1,r1);
+    assert(0<=l2 && l2<b.size() && 0<r2 && r2<=b.size());
+    auto w=get_vec(b,l2,r2);
+    auto vw=convolution(v,w);
+    for(int i=0;i<vw.size() && i+l1+l2<c.size();i++){
+      c[i+l1+l2]+=vw[i];
+    }
+  }
+
+  mint push(mint x,mint y){
+    a.push_back(x);
+    b.push_back(y);
+    int n=a.size();
+    c.resize(2*n-1);
+
+    for(int i=1;i<=(n+1&-(n+1)) && 2*i-1<=n;i<<=1){
+      conv(i-1,2*i-1,n-i,n);
+      if(i-1<n-i){
+        conv(n-i,n,i-1,2*i-1);
+      }
+    }
+    return c[n-1];
+  }
+};
