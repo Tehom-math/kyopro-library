@@ -1,13 +1,13 @@
 ll mod=998244353;
 // ll mod=1000000007;
 using mint=modint998244353;
-int MAX=1e6;
-vector<mint> fac(MAX),inv(MAX),finv(MAX);
-void COMinit(){
+vector<mint> fac,inv,finv;
+void COMinit(int k){
+  fac.resize(k),inv.resize(k),finv.resize(k);
   fac[0]=fac[1]=1;
   inv[1]=1;
   finv[0]=finv[1]=1;
-  rep(i,2,MAX){
+  rep(i,2,k){
     fac[i]=fac[i-1]*i;
     inv[i]=-(mod/i)*inv[mod%i];
     finv[i]=finv[i-1]*inv[i];
@@ -17,5 +17,6 @@ void COMinit(){
 
 mint COM(ll n,ll k){
   if(n<k || n<0 || k<0) return 0;
+  assert(n<fac.size());
   return (fac[n]*finv[k])*finv[n-k];
 }
