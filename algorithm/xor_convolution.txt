@@ -1,0 +1,42 @@
+/*
+  xor_convolutionの概略
+
+  (a_0, a_1, a_2, a_3, a_4, a_5, a_5, a_6, a_7)
+->(a_0+a_1, a_0-a_1, a_2+a_3, a_2-a_3, a_4+a_5, a_4-a_5, a_6+a_7, a_6-a_7) (1グループで(a,b)->(a+b,a-b))
+->((a_0+a_1)+(a_0+a_1),(a_0+a_1)+(a_0-a_1), ...) (2グループで(a,b)->(a+b,a-b))
+->(...) (4グループで(a,b)->(a+b,a-b))
+これがHadmard変換
+
+HをHadmard変換行列、c=xor_convolution(a,b) とすると
+H(c)=H(a)oH(b) が成り立つ(oは成分ごとの積)
+さらに、H*H=nE が成り立ち、H^{-1}=(1/n)E となる。(nは行列Hのサイズ)
+Hadmard変換はO(nlogn) で計算できるので、
+c=H^{-1}H(c)=H^{-1}(H(a)oH(b)) を利用すれば、cはO(nlogn)で計算できる
+*/
+
+using mint=modint998244353;
+vector<mint> hadmard(vector<mint> a){
+  int n=a.size();
+  for(int i=1;i<n;i<<=1){
+    rep(j,0,n)if(i&j){
+      int k=i^j;
+      mint tmp=a[k];
+      a[k]=tmp+a[j];
+      a[j]=tmp-a[j];
+    }
+  }
+
+  return a;
+}
+
+vector<mint> xor_convolution(vector<mint> a,vector<mint> b){
+  int n=a.size();
+  a=hadmard(a);
+  b=hadmard(b);
+  vector<mint> c(n);
+  rep(i,0,n) c[i]=a[i]*b[i];
+  c=hadmard(c);
+  rep(i,0,n) c[i]/=n;
+
+  return c;
+}
