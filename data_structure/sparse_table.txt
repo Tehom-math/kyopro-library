@@ -1,3 +1,5 @@
+// https://github.com/Tehom-math/tehom-homepage
+
 template<class S,S (*op)(S,S)>
 struct SparseTable{
   int n;

@@ -1,3 +1,5 @@
+// https://github.com/Tehom-math/tehom-homepage
+
 template<int B = 30>
 struct binary_trie{
   struct Node{
