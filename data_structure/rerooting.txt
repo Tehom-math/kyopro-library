@@ -1,4 +1,4 @@
-// https://github.com/Tehom-math/tehom-homepage
+// https://github.com/Tehom-math/kyopro-library
 
 // https://trap.jp/post/1702/
 template <class E, class V, E (*merge)(E, E), E (*e)(), E (*put_edge)(V, int), V (*put_vertex)(E, int)>

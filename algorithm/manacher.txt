@@ -1,4 +1,4 @@
-// https://github.com/Tehom-math/tehom-homepage
+// https://github.com/Tehom-math/kyopro-library
 
 // https://snuke.hatenablog.com/entry/2014/12/02/235837
 // 回文の半径を返すのに注意

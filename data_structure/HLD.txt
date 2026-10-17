@@ -1,4 +1,4 @@
-// https://github.com/Tehom-math/tehom-homepage
+// https://github.com/Tehom-math/kyopro-library
 
 // https://beet-aizu.github.io/library/tree/heavylightdecomposition.cpp.html
 class HLD{

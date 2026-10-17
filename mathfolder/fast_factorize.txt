@@ -1,4 +1,4 @@
-// https://github.com/Tehom-math/tehom-homepage
+// https://github.com/Tehom-math/kyopro-library
 
 using u64 = unsigned long long;
 using u128 = __int128_t;

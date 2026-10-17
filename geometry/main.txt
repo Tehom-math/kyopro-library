@@ -1,4 +1,4 @@
-// https://github.com/Tehom-math/tehom-homepage
+// https://github.com/Tehom-math/kyopro-library
 
 using ld=long double;
 const ld eps=1e-12;

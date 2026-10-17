@@ -1,4 +1,4 @@
-// https://github.com/Tehom-math/tehom-homepage
+// https://github.com/Tehom-math/kyopro-library
 
 template<class T> void fast_zeta(vector<T> &v){
   int N=v.size();
